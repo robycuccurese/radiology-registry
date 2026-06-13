@@ -2,8 +2,9 @@ package it.cyberqual.radiology_registry.api.equipment
 ;
 
 import it.cyberqual.radiology_registry.api.equipment.dto.CreateEquipmentRequest;
-import it.cyberqual.radiology_registry.api.equipment.dto.EquipmentResponse;
+import it.cyberqual.radiology_registry.api.equipment.dto.CreateEquipmentResponse;
 import it.cyberqual.radiology_registry.application.equipment.CreateEquipmentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +23,7 @@ public class EquipmentController {
      * Create a new radiology equipment.
      */
     @PostMapping
-    public ResponseEntity<EquipmentResponse> create(@RequestBody CreateEquipmentRequest request) {
+    public ResponseEntity<CreateEquipmentResponse> create(@Valid @RequestBody CreateEquipmentRequest request) {
         return ResponseEntity.ok(createEquipmentService.create(request));
     }
 }

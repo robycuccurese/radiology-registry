@@ -1,8 +1,9 @@
 package it.cyberqual.radiology_registry.application.equipment;
 
 import it.cyberqual.radiology_registry.api.equipment.dto.CreateEquipmentRequest;
-import it.cyberqual.radiology_registry.api.equipment.dto.EquipmentResponse;
+import it.cyberqual.radiology_registry.api.equipment.dto.CreateEquipmentResponse;
 import it.cyberqual.radiology_registry.domain.model.*;
+import it.cyberqual.radiology_registry.domain.validator.HierarchyValidator;
 import it.cyberqual.radiology_registry.repository.NodeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -18,14 +19,16 @@ import java.util.UUID;
 public class CreateEquipmentService {
 
     private final NodeRepository nodeRepository;
+    private final HierarchyValidator hierarchyValidator;
+
 
     @Transactional
-    public EquipmentResponse create(CreateEquipmentRequest request) {
+    public CreateEquipmentResponse create(CreateEquipmentRequest request) {
 
         Node parent = nodeRepository.findById(request.parentId())
                 .orElseThrow(() -> new IllegalArgumentException("Parent not found"));
 
-        validateParent(parent);
+        hierarchyValidator.validateParent(parent, NodeType.EQUIPMENT);
 
         Equipment equipment = new Equipment(
                 UUID.randomUUID(),
@@ -38,7 +41,7 @@ public class CreateEquipmentService {
 
         nodeRepository.save(equipment);
 
-        return new EquipmentResponse(
+        return new CreateEquipmentResponse(
                 equipment.getId(),
                 equipment.getName(),
                 request.equipmentType(),
@@ -46,21 +49,5 @@ public class CreateEquipmentService {
                 request.installationDate(),
                 parent.getId()
         );
-    }
-
-    /**
-     * Business rule:
-     * Equipment can only be attached to Organization or Container.
-     */
-    private void validateParent(Node parent) {
-
-        if (parent.getNodeType() == NodeType.EQUIPMENT) {
-            throw new IllegalStateException("Equipment cannot be parent of another equipment");
-        }
-
-        if (parent.getNodeType() != NodeType.ORGANIZATION &&
-                parent.getNodeType() != NodeType.CONTAINER) {
-            throw new IllegalStateException("Invalid parent type for equipment");
-        }
     }
 }

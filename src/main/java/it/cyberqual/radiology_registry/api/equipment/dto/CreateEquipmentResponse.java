@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * Response representing persisted equipment.
  */
-public record EquipmentResponse(
+public record CreateEquipmentResponse(
         UUID id,
         String name,
         EquipmentType equipmentType,
