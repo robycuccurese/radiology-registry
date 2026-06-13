@@ -2,45 +2,43 @@ package it.cyberqual.radiology_registry.domain.model;
 
 import it.cyberqual.radiology_registry.domain.vo.AuditInfo;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.UUID;
 
-/**
- * Base entity representing a node in the hierarchical structure.
- *
- * The system is based on a recursive tree model where each node
- * can have a parent node, enabling unlimited nesting.
- *
- * Node types:
- * - Organization: root-level entity
- * - Container: hierarchical grouping unit
- * - Equipment: leaf node representing a medical device
- */
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
+@Table(name = "node")
+@EntityListeners(AuditingEntityListener.class)
 @Inheritance(strategy = InheritanceType.JOINED)
 public abstract class Node {
 
     @Id
+    @Column(nullable = false, updatable = false)
     private UUID id;
 
+    @Column(nullable = false)
     private String name;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "node_type", nullable = false, updatable = false)
     private NodeType nodeType;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
     private Node parent;
 
     @Embedded
-    private AuditInfo audit;
+    private AuditInfo auditInfo;
 
-    public UUID getId() { return id; }
-    public String getName() { return name; }
-    public NodeType getNodeType() { return nodeType; }
-    public Node getParent() { return parent; }
-
-    public void setId(UUID id) { this.id = id; }
-    public void setName(String name) { this.name = name; }
-    public void setNodeType(NodeType nodeType) { this.nodeType = nodeType; }
-    public void setParent(Node parent) { this.parent = parent; }
+    protected Node(UUID id, String name, NodeType nodeType, Node parent) {
+        this.id = id;
+        this.name = name;
+        this.nodeType = nodeType;
+        this.parent = parent;
+    }
 }

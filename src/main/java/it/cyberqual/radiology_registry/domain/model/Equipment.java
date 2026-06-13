@@ -1,33 +1,46 @@
 package it.cyberqual.radiology_registry.domain.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
- * Leaf entity representing a radiological medical device.
- *
- * Equipment can only be attached to:
+ * Medical radiology equipment.
+ * <p>
+ * Equipment is always a leaf node.
+ * It can be attached either to:
  * - Organization
  * - Container
- *
- * It cannot contain child nodes.
  */
+@Getter
 @Entity
+@Table(name = "equipment")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Equipment extends Node {
 
-    private String serialNumber;
-    private LocalDate installationDate;
-
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private EquipmentType equipmentType;
 
-    public String getSerialNumber() { return serialNumber; }
-    public LocalDate getInstallationDate() { return installationDate; }
-    public EquipmentType getEquipmentType() { return equipmentType; }
+    @Column(nullable = false, unique = true)
+    private String serialNumber;
 
-    public void setSerialNumber(String serialNumber) { this.serialNumber = serialNumber; }
-    public void setInstallationDate(LocalDate installationDate) { this.installationDate = installationDate; }
-    public void setEquipmentType(EquipmentType equipmentType) { this.equipmentType = equipmentType; }
+    @Column(nullable = false)
+    private LocalDate installationDate;
+
+    public Equipment(UUID id, String name, Node parent, EquipmentType equipmentType, String serialNumber, LocalDate installationDate) {
+        super(id, name, NodeType.EQUIPMENT, parent);
+
+        this.equipmentType = equipmentType;
+        this.serialNumber = serialNumber;
+        this.installationDate = installationDate;
+    }
 }

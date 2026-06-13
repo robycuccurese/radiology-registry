@@ -1,10 +1,9 @@
 package it.cyberqual.radiology_registry.domain.model;
 
 /**
- * Type of node in the hierarchical structure.
+ * Supported hierarchy node types.
  */
 public enum NodeType {
-    ORGANIZATION,
-    CONTAINER,
-    EQUIPMENT
+
+    ORGANIZATION, CONTAINER, EQUIPMENT
 }

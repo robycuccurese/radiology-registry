@@ -1,11 +1,9 @@
 package it.cyberqual.radiology_registry.domain.model;
 
 /**
- * Type of radiological equipment.
+ * Supported radiology equipment categories.
  */
 public enum EquipmentType {
-    CT,
-    MRI,
-    XRAY,
-    MAMMOGRAPHY
+
+    CT, MRI, XRAY, MAMMOGRAPHY
 }

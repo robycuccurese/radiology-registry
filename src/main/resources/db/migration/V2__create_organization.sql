@@ -1,0 +1,5 @@
+CREATE TABLE organization(
+    id UUID PRIMARY KEY,
+
+    CONSTRAINT fk_org_node FOREIGN KEY (id) REFERENCES node(id) ON DELETE CASCADE
+);
