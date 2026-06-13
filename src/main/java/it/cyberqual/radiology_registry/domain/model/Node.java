@@ -1,12 +1,16 @@
 package it.cyberqual.radiology_registry.domain.model;
 
-import it.cyberqual.radiology_registry.domain.vo.AuditInfo;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -32,8 +36,21 @@ public abstract class Node {
     @JoinColumn(name = "parent_id")
     private Node parent;
 
-    @Embedded
-    private AuditInfo auditInfo;
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @CreatedBy
+    @Column(nullable = false, updatable = false)
+    private String createdBy;
+
+    @LastModifiedDate
+    @Column(insertable = false)
+    private Instant updatedAt;
+
+    @LastModifiedBy
+    @Column(insertable = false)
+    private String updatedBy;
 
     protected Node(UUID id, String name, NodeType nodeType, Node parent) {
         this.id = id;
