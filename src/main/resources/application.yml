@@ -16,7 +16,5 @@ spring:
   flyway:
     enabled: true
 
-    
-
 server:
   port: 8080
