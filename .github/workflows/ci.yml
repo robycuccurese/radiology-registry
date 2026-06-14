@@ -129,57 +129,57 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-import glob
-import os
-import xml.etree.ElementTree as ET
+          import glob
+          import os
+          import xml.etree.ElementTree as ET
 
-report_files = sorted(glob.glob('target/surefire-reports/TEST-*.xml'))
-summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
+          report_files = sorted(glob.glob('target/surefire-reports/TEST-*.xml'))
+          summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
 
-if not report_files:
-    message = 'No Surefire XML reports found in target/surefire-reports.'
-    print(message)
-    if summary_path:
-        with open(summary_path, 'a', encoding='utf-8') as f:
-            f.write('## Test execution summary\n\n')
-            f.write(f'- {message}\n')
-    raise SystemExit(0)
+          if not report_files:
+              message = 'No Surefire XML reports found in target/surefire-reports.'
+              print(message)
+              if summary_path:
+                  with open(summary_path, 'a', encoding='utf-8') as f:
+                      f.write('## Test execution summary\\n\\n')
+                      f.write(f'- {message}\\n')
+              raise SystemExit(0)
 
-rows = []
-total_tests = total_failures = total_errors = total_skipped = 0
+          rows = []
+          total_tests = total_failures = total_errors = total_skipped = 0
 
-for path in report_files:
-    root = ET.parse(path).getroot()
-    suite_name = root.attrib.get('name', os.path.basename(path))
-    tests = int(root.attrib.get('tests', '0'))
-    failures = int(root.attrib.get('failures', '0'))
-    errors = int(root.attrib.get('errors', '0'))
-    skipped = int(root.attrib.get('skipped', '0'))
-    passed = tests - failures - errors - skipped
-    status = 'PASSED' if failures == 0 and errors == 0 else 'FAILED'
+          for path in report_files:
+              root = ET.parse(path).getroot()
+              suite_name = root.attrib.get('name', os.path.basename(path))
+              tests = int(root.attrib.get('tests', '0'))
+              failures = int(root.attrib.get('failures', '0'))
+              errors = int(root.attrib.get('errors', '0'))
+              skipped = int(root.attrib.get('skipped', '0'))
+              passed = tests - failures - errors - skipped
+              status = 'PASSED' if failures == 0 and errors == 0 else 'FAILED'
 
-    total_tests += tests
-    total_failures += failures
-    total_errors += errors
-    total_skipped += skipped
-    rows.append((suite_name, status, tests, passed, failures, errors, skipped))
+              total_tests += tests
+              total_failures += failures
+              total_errors += errors
+              total_skipped += skipped
+              rows.append((suite_name, status, tests, passed, failures, errors, skipped))
 
-print('--- Test outcomes by class ---')
-for row in rows:
-    print(f'{row[0]} -> {row[1]} (tests={row[2]}, passed={row[3]}, failures={row[4]}, errors={row[5]}, skipped={row[6]})')
+          print('--- Test outcomes by class ---')
+          for row in rows:
+              print(f'{row[0]} -> {row[1]} (tests={row[2]}, passed={row[3]}, failures={row[4]}, errors={row[5]}, skipped={row[6]})')
 
-if summary_path:
-    with open(summary_path, 'a', encoding='utf-8') as f:
-        f.write('## Test execution summary\n\n')
-        f.write('| Test class | Outcome | Tests | Passed | Failures | Errors | Skipped |\n')
-        f.write('|---|---:|---:|---:|---:|---:|---:|\n')
-        for suite_name, status, tests, passed, failures, errors, skipped in rows:
-            f.write(f'| `{suite_name}` | **{status}** | {tests} | {passed} | {failures} | {errors} | {skipped} |\n')
-        overall = 'PASSED' if (total_failures + total_errors) == 0 else 'FAILED'
-        f.write('\n')
-        f.write(f'- Overall outcome: **{overall}**\n')
-        f.write(f'- Totals: tests={total_tests}, failures={total_failures}, errors={total_errors}, skipped={total_skipped}\n')
-PY
+          if summary_path:
+              with open(summary_path, 'a', encoding='utf-8') as f:
+                  f.write('## Test execution summary\\n\\n')
+                  f.write('| Test class | Outcome | Tests | Passed | Failures | Errors | Skipped |\\n')
+                  f.write('|---|---:|---:|---:|---:|---:|---:|\\n')
+                  for suite_name, status, tests, passed, failures, errors, skipped in rows:
+                      f.write(f'| `{suite_name}` | **{status}** | {tests} | {passed} | {failures} | {errors} | {skipped} |\\n')
+                  overall = 'PASSED' if (total_failures + total_errors) == 0 else 'FAILED'
+                  f.write('\\n')
+                  f.write(f'- Overall outcome: **{overall}**\\n')
+                  f.write(f'- Totals: tests={total_tests}, failures={total_failures}, errors={total_errors}, skipped={total_skipped}\\n')
+          PY
 
       - name: Package application artifact
         if: success()
