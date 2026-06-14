@@ -59,15 +59,15 @@ jobs:
           SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-8)"
           RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           APP_VERSION="$(python3 - <<'PY'
-import xml.etree.ElementTree as ET
+          import xml.etree.ElementTree as ET
 
-root = ET.parse('pom.xml').getroot()
-ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
-version = root.find('m:version', ns)
-if version is None or not version.text:
-    raise SystemExit('Unable to resolve <version> from pom.xml')
-print(version.text.strip())
-PY
+          root = ET.parse('pom.xml').getroot()
+          ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
+          version = root.find('m:version', ns)
+          if version is None or not version.text:
+              raise SystemExit('Unable to resolve <version> from pom.xml')
+          print(version.text.strip())
+          PY
           )"
           NORMALIZED_VERSION="${APP_VERSION%-SNAPSHOT}"
 
