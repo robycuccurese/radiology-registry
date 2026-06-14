@@ -1,0 +1,190 @@
+name: Release - Publish Docker Image
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+on:
+  workflow_run:
+    workflows:
+      - CI - Build and Test
+    types:
+      - completed
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  publish-image:
+    name: Build, scan, and publish image to GHCR
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository at release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve release metadata
+        id: metadata
+        shell: bash
+        run: |
+          BRANCH_NAME="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          SHORT_SHA="$(echo "${COMMIT_SHA}" | cut -c1-8)"
+          OWNER_LOWER="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          APP_VERSION="$(python3 - <<'PY'
+import xml.etree.ElementTree as ET
+
+root = ET.parse('pom.xml').getroot()
+ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
+version = root.find('m:version', ns)
+if version is None or not version.text:
+    raise SystemExit('Unable to resolve <version> from pom.xml')
+print(version.text.strip())
+PY
+          )"
+
+          NORMALIZED_VERSION="${APP_VERSION%-SNAPSHOT}"
+          IMAGE_TAG="${BRANCH_NAME}-${NORMALIZED_VERSION}"
+          IMAGE_TAG_IMMUTABLE="${IMAGE_TAG}-${SHORT_SHA}"
+          GHCR_IMAGE="ghcr.io/${OWNER_LOWER}/radiology-registry:${IMAGE_TAG}"
+          GHCR_IMAGE_IMMUTABLE="ghcr.io/${OWNER_LOWER}/radiology-registry:${IMAGE_TAG_IMMUTABLE}"
+
+          mkdir -p target/release
+          git --no-pager log -n 5 --pretty=format:'- %h %s (%an)' > target/release/changelog-brief.md
+
+          cat > target/release/release-metadata.json <<EOF
+          {
+            "branch": "${BRANCH_NAME}",
+            "commit": "${COMMIT_SHA}",
+            "shortSha": "${SHORT_SHA}",
+            "version": "${APP_VERSION}",
+            "normalizedVersion": "${NORMALIZED_VERSION}",
+            "imageTag": "${IMAGE_TAG}",
+            "imageTagImmutable": "${IMAGE_TAG_IMMUTABLE}",
+            "ghcrImage": "${GHCR_IMAGE}",
+            "ghcrImageImmutable": "${GHCR_IMAGE_IMMUTABLE}",
+            "runUrl": "${RUN_URL}"
+          }
+          EOF
+
+          echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "normalized_version=${NORMALIZED_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "image_tag_immutable=${IMAGE_TAG_IMMUTABLE}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image=${GHCR_IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image_immutable=${GHCR_IMAGE_IMMUTABLE}" >> "$GITHUB_OUTPUT"
+          echo "run_url=${RUN_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Package application artifact for Docker image
+        shell: bash
+        run: ./mvnw -B -DskipTests package
+
+      - name: Login to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image (semantic and immutable tags)
+        shell: bash
+        run: |
+          docker build \
+            -t "radiology-registry:${{ steps.metadata.outputs.image_tag }}" \
+            -t "radiology-registry:${{ steps.metadata.outputs.image_tag_immutable }}" \
+            -t "${{ steps.metadata.outputs.ghcr_image }}" \
+            -t "${{ steps.metadata.outputs.ghcr_image_immutable }}" \
+            .
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload Trivy filesystem SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: radiology-registry:${{ steps.metadata.outputs.image_tag_immutable }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+
+      - name: Push Docker image tags to GHCR
+        shell: bash
+        run: |
+          docker push "${{ steps.metadata.outputs.ghcr_image }}"
+          docker push "${{ steps.metadata.outputs.ghcr_image_immutable }}"
+
+      - name: Resolve published image digest
+        id: digest
+        shell: bash
+        run: |
+          DIGEST="$(docker buildx imagetools inspect "${{ steps.metadata.outputs.ghcr_image_immutable }}" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          echo "image_digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ github.run_id }}
+          path: |
+            target/release/release-metadata.json
+            target/release/changelog-brief.md
+            trivy-fs.sarif
+            trivy-image.sarif
+          if-no-files-found: warn
+
+      - name: Publish release observability summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Release observability"
+            echo
+            echo "- Commit: \`${{ steps.metadata.outputs.commit_sha }}\`"
+            echo "- Branch: \`${{ steps.metadata.outputs.branch_name }}\`"
+            echo "- Image (semantic): \`${{ steps.metadata.outputs.ghcr_image }}\`"
+            echo "- Image (immutable): \`${{ steps.metadata.outputs.ghcr_image_immutable }}\`"
+            echo "- Image digest: \`${{ steps.digest.outputs.image_digest }}\`"
+            echo "- Run link: [Open release run](${{ steps.metadata.outputs.run_url }})"
+            echo
+            echo "### Brief changelog"
+            cat target/release/changelog-brief.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+

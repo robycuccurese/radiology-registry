@@ -1,0 +1,162 @@
+name: Deploy - Environment Promotion
+
+permissions:
+  contents: read
+  packages: read
+
+on:
+  workflow_run:
+    workflows:
+      - Release - Publish Docker Image
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      image_tag:
+        description: Optional image tag override (e.g. develop-0.0.1-a1b2c3d)
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy image to target environment
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+    concurrency:
+      group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository at deployment commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve deployment metadata
+        id: metadata
+        shell: bash
+        run: |
+          TARGET_ENV="${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}"
+          BRANCH_NAME="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          SHORT_SHA="$(echo "${COMMIT_SHA}" | cut -c1-8)"
+          OWNER_LOWER="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          APP_VERSION="$(python3 - <<'PY'
+import xml.etree.ElementTree as ET
+
+root = ET.parse('pom.xml').getroot()
+ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
+version = root.find('m:version', ns)
+if version is None or not version.text:
+    raise SystemExit('Unable to resolve <version> from pom.xml')
+print(version.text.strip())
+PY
+          )"
+
+          NORMALIZED_VERSION="${APP_VERSION%-SNAPSHOT}"
+          DEFAULT_TAG="${BRANCH_NAME}-${NORMALIZED_VERSION}-${SHORT_SHA}"
+          SELECTED_TAG="${{ inputs.image_tag }}"
+          if [[ -z "${SELECTED_TAG}" ]]; then
+            SELECTED_TAG="${DEFAULT_TAG}"
+          fi
+
+          GHCR_IMAGE="ghcr.io/${OWNER_LOWER}/radiology-registry:${SELECTED_TAG}"
+
+          mkdir -p target/deploy
+          git --no-pager log -n 5 --pretty=format:'- %h %s (%an)' > target/deploy/changelog-brief.md
+
+          cat > target/deploy/deploy-metadata.json <<EOF
+          {
+            "environment": "${TARGET_ENV}",
+            "branch": "${BRANCH_NAME}",
+            "commit": "${COMMIT_SHA}",
+            "image": "${GHCR_IMAGE}",
+            "runUrl": "${RUN_URL}"
+          }
+          EOF
+
+          echo "target_env=${TARGET_ENV}" >> "$GITHUB_OUTPUT"
+          echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image=${GHCR_IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "run_url=${RUN_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR for deployment pull
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate image existence in GHCR
+        shell: bash
+        run: |
+          docker pull "${{ steps.metadata.outputs.ghcr_image }}"
+
+      - name: Resolve image digest for traceability
+        id: digest
+        shell: bash
+        run: |
+          DIGEST="$(docker buildx imagetools inspect "${{ steps.metadata.outputs.ghcr_image }}" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          echo "image_digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger deployment webhook (if configured)
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+        shell: bash
+        run: |
+          if [[ -z "${DEPLOY_WEBHOOK_URL}" ]]; then
+            echo "::warning::DEPLOY_WEBHOOK_URL not configured. Deployment hook skipped; image validation completed."
+            exit 0
+          fi
+
+          PAYLOAD="{\"environment\":\"${{ steps.metadata.outputs.target_env }}\",\"image\":\"${{ steps.metadata.outputs.ghcr_image }}\",\"commit\":\"${{ steps.metadata.outputs.commit_sha }}\"}"
+          curl --fail --show-error --location --request POST \
+            --header 'Content-Type: application/json' \
+            --data "${PAYLOAD}" \
+            "${DEPLOY_WEBHOOK_URL}"
+
+      - name: Upload deployment metadata artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-artifacts-${{ github.run_id }}
+          path: |
+            target/deploy/deploy-metadata.json
+            target/deploy/changelog-brief.md
+          if-no-files-found: warn
+
+      - name: Publish deployment observability summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Deployment observability"
+            echo
+            echo "- Environment: \`${{ steps.metadata.outputs.target_env }}\`"
+            echo "- Commit: \`${{ steps.metadata.outputs.commit_sha }}\`"
+            echo "- Branch: \`${{ steps.metadata.outputs.branch_name }}\`"
+            echo "- Image: \`${{ steps.metadata.outputs.ghcr_image }}\`"
+            echo "- Image digest: \`${{ steps.digest.outputs.image_digest }}\`"
+            echo "- Run link: [Open deploy run](${{ steps.metadata.outputs.run_url }})"
+            echo
+            echo "### Brief changelog"
+            cat target/deploy/changelog-brief.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
