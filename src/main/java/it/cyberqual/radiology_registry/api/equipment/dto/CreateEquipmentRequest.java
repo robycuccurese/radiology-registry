@@ -8,12 +8,12 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Request used to create a new radiology equipment.
+ * Request payload used to create a new radiology equipment record.
  */
 public record CreateEquipmentRequest(
-        @NotNull @NotBlank String name,
-        @NotNull @NotBlank EquipmentType equipmentType,
-        @NotNull @NotBlank String serialNumber,
-        @NotNull @NotBlank LocalDate installationDate,
-        @NotNull @NotBlank UUID parentId
+        @NotBlank String name,
+        @NotNull EquipmentType equipmentType,
+        @NotBlank String serialNumber,
+        @NotNull LocalDate installationDate,
+        @NotNull UUID parentId
 ) {}

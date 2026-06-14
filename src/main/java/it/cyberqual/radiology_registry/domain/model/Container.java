@@ -8,15 +8,8 @@ import lombok.NoArgsConstructor;
 import java.util.UUID;
 
 /**
- * Hierarchical structural node.
- * <p>
- * Containers can be nested without limits.
- * <p>
- * Examples:
- * - Building
- * - Department
- * - Ward
- * - Room
+ * Hierarchical structural node used to represent physical or logical subdivisions.
+ * Containers can be nested without theoretical limits.
  */
 @Entity
 @Table(name = "container")

@@ -18,12 +18,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NodeTreeDto {
-
     private UUID id;
     private String name;
     private String type;
-
     private List<NodeTreeDto> children = new ArrayList<>();
-
     private EquipmentLightDto equipmentDetails;
 }

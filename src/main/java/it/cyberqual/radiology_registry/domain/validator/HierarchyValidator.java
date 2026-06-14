@@ -5,13 +5,13 @@ import it.cyberqual.radiology_registry.domain.model.NodeType;
 import org.springframework.stereotype.Component;
 
 /**
- * Validates hierarchy business rules for Nodes.
+ * Validates hierarchy business rules for nodes.
  */
 @Component
 public class HierarchyValidator {
 
     /**
-     * Validates if a node can be attached to a given parent.
+     * Checks whether a node of the given type can be attached to the specified parent.
      */
     public void validateParent(Node parent, NodeType childType) {
 

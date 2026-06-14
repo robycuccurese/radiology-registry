@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Response representing persisted equipment.
+ * Response payload representing the persisted equipment record.
  */
 public record CreateEquipmentResponse(
         UUID id,

@@ -20,7 +20,7 @@ public class EquipmentController {
     private final EquipmentService equipmentService;
 
     /**
-     * Create a new radiology equipment.
+     * Creates a new radiology equipment record.
      */
     @PostMapping
     public ResponseEntity<CreateEquipmentResponse> create(@Valid @RequestBody CreateEquipmentRequest request) {

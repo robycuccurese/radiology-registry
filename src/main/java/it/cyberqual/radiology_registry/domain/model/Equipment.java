@@ -14,11 +14,7 @@ import java.util.UUID;
 
 /**
  * Medical radiology equipment.
- * <p>
- * Equipment is always a leaf node.
- * It can be attached either to:
- * - Organization
- * - Container
+ * Equipment is always a leaf node and can be attached to either an Organization or a Container.
  */
 @Getter
 @Entity
