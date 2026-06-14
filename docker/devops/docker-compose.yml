@@ -4,13 +4,14 @@ services:
     container_name: radiology-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: radiology_registry
+      POSTGRES_DB: radiology_registry_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
 
 volumes:
   postgres_data:
