@@ -36,6 +36,9 @@ public abstract class Node {
     @JoinColumn(name = "parent_id")
     private Node parent;
 
+    @Column(name = "root_org_id", nullable = false)
+    private UUID rootOrganizationId;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -52,10 +55,11 @@ public abstract class Node {
     @Column(insertable = false)
     private String updatedBy;
 
-    protected Node(UUID id, String name, NodeType nodeType, Node parent) {
+    protected Node(UUID id, String name, NodeType nodeType, Node parent, UUID rootOrganizationId) {
         this.id = id;
         this.name = name;
         this.nodeType = nodeType;
         this.parent = parent;
+        this.rootOrganizationId = rootOrganizationId;
     }
 }

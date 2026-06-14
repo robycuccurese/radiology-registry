@@ -16,7 +16,7 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-public class CreateEquipmentService {
+public class EquipmentService {
 
     private final NodeRepository nodeRepository;
     private final HierarchyValidator hierarchyValidator;
@@ -36,7 +36,8 @@ public class CreateEquipmentService {
                 parent,
                 request.equipmentType(),
                 request.serialNumber(),
-                request.installationDate()
+                request.installationDate(),
+                parent.getRootOrganizationId()
         );
 
         nodeRepository.save(equipment);

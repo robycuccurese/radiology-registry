@@ -21,6 +21,6 @@ import java.util.UUID;
 public class Organization extends Node {
 
     public Organization(UUID id, String name) {
-        super(id, name, NodeType.ORGANIZATION, null);
+        super(id, name, NodeType.ORGANIZATION, null, id);
     }
 }

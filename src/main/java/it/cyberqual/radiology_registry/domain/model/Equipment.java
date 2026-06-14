@@ -36,8 +36,8 @@ public class Equipment extends Node {
     @Column(nullable = false)
     private LocalDate installationDate;
 
-    public Equipment(UUID id, String name, Node parent, EquipmentType equipmentType, String serialNumber, LocalDate installationDate) {
-        super(id, name, NodeType.EQUIPMENT, parent);
+    public Equipment(UUID id, String name, Node parent, EquipmentType equipmentType, String serialNumber, LocalDate installationDate, UUID rootOrganizationId) {
+        super(id, name, NodeType.EQUIPMENT, parent, rootOrganizationId);
 
         this.equipmentType = equipmentType;
         this.serialNumber = serialNumber;

@@ -22,7 +22,7 @@ import java.util.UUID;
 @Table(name = "container")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Container extends Node {
-    public Container(UUID id, String name, Node parent) {
-        super(id, name, NodeType.CONTAINER, parent);
+    public Container(UUID id, String name, Node parent, UUID rootOrganizationId) {
+        super(id, name, NodeType.CONTAINER, parent, rootOrganizationId);
     }
 }
