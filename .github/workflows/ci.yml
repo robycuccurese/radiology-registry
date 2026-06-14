@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -51,9 +51,6 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Ensure Maven wrapper is executable
-        shell: bash
-        run: chmod +x ./mvnw
 
       - name: Resolve build metadata
         id: metadata
@@ -125,6 +122,7 @@ jobs:
           TEST_DB_PASSWORD: postgres
         shell: bash
         run: |
+          chmod +x ./mvnw
           set -o pipefail
           ./mvnw -B test | tee target/maven-test-output.log
 
