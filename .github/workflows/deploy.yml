@@ -4,6 +4,9 @@ permissions:
   contents: read
   packages: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_run:
     workflows:
@@ -31,7 +34,7 @@ jobs:
     name: Deploy image to target environment
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
@@ -41,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout repository at deployment commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -58,15 +61,15 @@ jobs:
           RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
           APP_VERSION="$(python3 - <<'PY'
-import xml.etree.ElementTree as ET
+          import xml.etree.ElementTree as ET
 
-root = ET.parse('pom.xml').getroot()
-ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
-version = root.find('m:version', ns)
-if version is None or not version.text:
-    raise SystemExit('Unable to resolve <version> from pom.xml')
-print(version.text.strip())
-PY
+          root = ET.parse('pom.xml').getroot()
+          ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
+          version = root.find('m:version', ns)
+          if version is None or not version.text:
+              raise SystemExit('Unable to resolve <version> from pom.xml')
+          print(version.text.strip())
+          PY
           )"
 
           NORMALIZED_VERSION="${APP_VERSION%-SNAPSHOT}"
@@ -134,7 +137,7 @@ PY
 
       - name: Upload deployment metadata artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: deploy-artifacts-${{ github.run_id }}
           path: |
