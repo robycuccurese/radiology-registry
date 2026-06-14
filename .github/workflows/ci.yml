@@ -51,6 +51,10 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Ensure Maven wrapper is executable
+        shell: bash
+        run: chmod +x ./mvnw
+
       - name: Resolve build metadata
         id: metadata
         shell: bash
